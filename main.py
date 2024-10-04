@@ -4,13 +4,14 @@ import numpy as np
 import pyqtgraph as pg
 from PyQt5.QtWidgets import QApplication, QMainWindow, QFileDialog, QPushButton, QVBoxLayout, QWidget, QDial, QLabel, QHBoxLayout
 
+MAX_VISIBLE_POINTS = 25000
 
 class AudioWaveformApp(QMainWindow):
     def __init__(self):
-        super().__init__()
-
+        super().__init__()        
+        
         # Set up the main window
-        self.setWindowTitle("Audio Waveform Viewer with Amplitude Control")
+        self.setWindowTitle("AVEngine")
         self.setGeometry(100, 100, 800, 600)
 
         # Layout
@@ -51,10 +52,15 @@ class AudioWaveformApp(QMainWindow):
 
         # Access the ViewBox to set limits later
         self.view_box = self.waveform_plot.getViewBox()
+        
+        # Connect the zoom level change signal to a custom method
+        self.view_box.sigRangeChanged.connect(self.on_zoom_change)
 
         # Placeholder for the waveform data
+        self.sample_rate = None
         self.original_waveform = None
         self.downsampled_waveform = None
+        self.downsample_factor = 1
         self.times_downsampled = None
         self.amplitude_scaling_factor = 1.0
 
@@ -69,13 +75,15 @@ class AudioWaveformApp(QMainWindow):
 
     def plot_waveform(self, audio_file):
         # Load the audio file and extract the waveform and sample rate
-        y, sr = librosa.load(audio_file, sr=None)
+        data, sr = librosa.load(audio_file, sr=None)
 
         # Downsample the waveform data for faster plotting
-        max_points = 10000  # Maximum number of points to plot (adjust as needed)
-        downsample_factor = max(1, len(y) // max_points)
-        self.original_waveform = y[::downsample_factor]
-        self.times_downsampled = np.linspace(0, len(y) / sr, num=len(self.original_waveform))
+        max_points = MAX_VISIBLE_POINTS  # Maximum number of points to plot (adjust as needed)
+        downsample_factor = max(1, len(data) // max_points)
+        self.sample_rate = sr
+        self.original_waveform = data
+        self.downsampled_waveform = data[::downsample_factor]
+        self.times_downsampled = np.linspace(0, len(data) / sr, num=len(self.original_waveform))
 
         # Plot the waveform with the current amplitude scaling factor
         self.update_waveform_plot()
@@ -106,6 +114,36 @@ class AudioWaveformApp(QMainWindow):
         # Update the waveform plot with the new amplitude scaling factor
         self.update_waveform_plot()
 
+    def on_zoom_change(self, view_box, view_range):
+        """Regenerate the visible waveform with 10,000 points based on the current zoom level."""
+        x_range, _ = view_range  # Extract the X range (time) from the view
+        x_min, x_max = x_range  # Get the minimum and maximum X values currently in view
+
+        # Find the indices corresponding to the visible range in self.times_downsampled
+        visible_indices = np.where((self.times_downsampled >= x_min) & (self.times_downsampled <= x_max))[0]
+        if len(visible_indices) <= 0:
+            return
+        
+        # Extract visible portion of the original waveform
+        original_start_idx = visible_indices[0]# * self.downsample_factor
+        original_end_idx = visible_indices[-1]# * self.downsample_factor
+        visible_waveform = self.original_waveform[original_start_idx:original_end_idx]
+
+        # Downsample to at most 10,000 points
+        max_points = MAX_VISIBLE_POINTS
+        if len(visible_waveform) > max_points:
+            downsample_factor = len(visible_waveform) // max_points
+            downsampled_waveform = visible_waveform[::downsample_factor]
+        else:
+            downsampled_waveform = visible_waveform
+
+        # Create the corresponding time axis for the downsampled waveform
+        visible_times = np.linspace(x_min, x_max, num=len(downsampled_waveform))
+
+        # Update the plot with the new downsampled waveform
+        self.waveform_plot.clear()
+        self.waveform_plot.plot(visible_times, downsampled_waveform, pen='b')
+        
 
 # Run the application
 if __name__ == "__main__":
