@@ -56,12 +56,9 @@ class MainApplication(QMainWindow):
             self.wave_display.set_wave(waveform, sample_rate)
 
     def update_amplitude_scaling(self):
-        scaling_factor = self.amplitude_dial.value() / 10.0
+        scaling_factor = self.amplitude_dial.value() / 5.0
         self.amplitude_label.setText(f'Amplitude Scaling: {scaling_factor:.1f}')
-
-        #if self.audio_engine.original_waveform is not None:
-            #downsampled_waveform, times = self.audio_engine.get_downsampled_waveform(max_points=25000)
-            #self.wave_display.update_waveform_plot(downsampled_waveform, times, scaling_factor)
+        self.wave_display.set_scale_factor(scaling_factor)
 
 # Run the application
 if __name__ == "__main__":

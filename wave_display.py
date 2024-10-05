@@ -1,8 +1,9 @@
 import librosa
 import numpy as np
 import pyqtgraph as pg
+from pyqtgraph import ColorMap
 
-MAX_VISIBLE_POINTS = 20000
+MAX_VISIBLE_POINTS = 50000
 
 class WaveDisplay:
     
@@ -23,6 +24,7 @@ class WaveDisplay:
         
         # store audio context
         self.sample_rate = None
+        self.scale_factor = 1.0
         
         # store audio
         self.raw_waveform = None
@@ -80,5 +82,13 @@ class WaveDisplay:
     # Plot the display waveform on the graph widget
     #---------------------------------------------------------------------------
     def render(self):
+        print(len(self.display_waveform))
         self.plot_widget.clear()
-        self.plot_widget.plot(self.display_times, self.display_waveform, pen='b')
+        self.plot_widget.plot(self.display_times, self.display_waveform * self.scale_factor)
+    
+    # Update the scale factor
+    #---------------------------------------------------------------------------
+    def set_scale_factor(self, scaling_factor):
+        self.scale_factor = scaling_factor
+        self.render()
+        
